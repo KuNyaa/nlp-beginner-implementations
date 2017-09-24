@@ -16,7 +16,9 @@ def load_data(path):
     tsvfile.close()
     return np.array(data)
 
+
 def save_data(path, data):
+    '''Save data to a csv file'''
     csvfile=open(path, 'w', newline='')
     csvwriter = csv.writer(csvfile, dialect='excel')#delimiter=',')
     for result in data:
@@ -104,6 +106,7 @@ def loss(label_Y, pred_Y):
     '''
     return - np.sum(Y)
 
+
 def vectors_to_labels(Y):
     '''Convert prediction matrix Y to a vector of label.(each column of Y is a sample)'''
     labels = []
@@ -113,9 +116,11 @@ def vectors_to_labels(Y):
         labels.append(vec.index(max(vec)))
     return np.array(labels)
 
+
 def calc_the_acc(label_Y, pred_Y):
     '''Calculate the accuracy of prediction'''
     return np.sum(label_Y == pred_Y) / label_Y.shape[0]
+
 
 def training(X, Y, epochs, method='mini batch', W=None, learning_rate=0.003, batch_size=64):
     '''Training the weight vector W on the dataset (X, Y)
@@ -140,6 +145,12 @@ def training(X, Y, epochs, method='mini batch', W=None, learning_rate=0.003, bat
         W[:,0] = np.zeros(classes_num)
     loss_cache = []
     for k in range(epochs+1):
+        # random shuffle
+        X_Y  = list(zip(X.T, Y.T))
+        np.random.shuffle(X_Y)
+        X, Y = zip(*X_Y)
+        X, Y = np.array(X).T, np.array(Y).T
+        # end shuffle
         blocks = m // batch_size
         for i in range(blocks + 1): # 1 for the last not full block
             begin, end = i * batch_size, (i+1) * batch_size
@@ -153,6 +164,7 @@ def training(X, Y, epochs, method='mini batch', W=None, learning_rate=0.003, bat
             dW = (pred_Y - train_Y).dot(train_X.T)
             #gradient descent
             W = W - learning_rate * dW
+        
         if k % 100 == 0:
             pred_Y = predict(X, W)
             L = loss(Y, pred_Y)
@@ -166,11 +178,15 @@ def training(X, Y, epochs, method='mini batch', W=None, learning_rate=0.003, bat
 train_orig = load_data('./data/train.tsv')
 test_orig  = load_data('./data/test.tsv')
 
-train_size = 10000
+# limit the training data size , in case of running out of the memory
+train_size = 8000
 test_size = len(test_orig)
 # get dictionary
 text = [train_orig[i][2].split(' ') for i in range(1,train_size)]
 dicts = get_dicts(text, 3)
+
+# shuffle raw data
+#np.random.shuffle(train_orig[1:])
 
 # convert raw data to training data
 train_X, train_Y = get_features(train_orig[:train_size], dicts, tag='train')
@@ -179,37 +195,17 @@ test_X, _ = get_features(test_orig[:test_size], dicts, tag='test')
 print('loaded')
 del dicts
 del train_orig
-del test_orig
 # softmax regression
-W, loss_cache = training(train_X, train_Y, 3000)
+W, loss_cache = training(train_X, train_Y, 2000, learning_rate=0.005, batch_size=32)
 
 # make prediction on testset
 
 test_Y = vectors_to_labels(predict(test_X, W))
 
+# save the prediction to csv file
 output = [['PhraseId', 'Sentiment']]
 for i in range(1, test_size):
     output.append([test_orig[i][0], test_Y[i-1]])
 save_data('result.csv', output)
 
-'''
-st = time.time()
-text = [train_orig[i][2].split(' ') for i in range(1,3)]
-text = [['I', 'am', 'fine'], ['How', 'are', 'you']]
-train_ = [[],[1,1,'I am fine','2'], [1,1,'How are you', '1']]
-test_ =[[],[1,1,'you are fine']]
-dicts = get_dicts(text, 2)
-dicts_size = len(dicts)
-train_x, train_y = get_features(train_, 3, dicts, 'train')
-test_x , _ = get_features(test_, 3, dicts, 'test')
-W = np.random.randn((dicts_size + 1) * classes_num)
-print(predict(test_x, W))
-'''
-'''
-print(train_orig[0])
-print(dicts)
-print(train_x.shape, train_y.shape)
-print(train_x)
-print(train_y)
-print(time.time() - st)
-'''
+
