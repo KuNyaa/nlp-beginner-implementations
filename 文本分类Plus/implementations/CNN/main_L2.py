@@ -133,7 +133,12 @@ optimizer = tf.train.AdamOptimizer(1e-4)
 grads_and_vars = optimizer.compute_gradients(cnn.loss)
 train_op = optimizer.apply_gradients(grads_and_vars, global_step = global_step)
 
-sess = tf.Session();
+#limit the memory
+config = tf.ConfigProto()
+config.gpu_options.per_process_gpu_memory_fraction = 0.4
+#config.gpu_options.allow_growth = True
+
+sess = tf.Session(config=config)
 
 sess.run(tf.global_variables_initializer())
 

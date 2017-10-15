@@ -137,7 +137,14 @@ optimizer = tf.train.AdamOptimizer(FLAGS['learning_rate'])
 gradidents = optimizer.compute_gradients(fnn.loss)
 train_op = optimizer.apply_gradients(gradidents, global_step = global_step)
 
-sess = tf.Session()
+
+#limit the memory
+config = tf.ConfigProto()
+config.gpu_options.per_process_gpu_memory_fraction = 0.4
+#config.gpu_options.allow_growth = True
+
+sess = tf.Session(config=config)
+
 
 sess.run(tf.global_variables_initializer())
 
