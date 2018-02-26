@@ -1,0 +1,178 @@
+\documentclass{article} % For LaTeX2e
+\usepackage{nips13submit_e,times}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{xeCJK}
+\setCJKmainfont{宋体}
+\renewcommand{\baselinestretch}{1.3}
+%\documentstyle[nips13submit_09,times,art10]{article} % For LaTeX 2.09
+
+
+\title{LSTM-CRF模型在序列标注问题上的应用\\
+\begin{normalsize} FudanNLP-nlp-beginner 任务四探究报告 \end{normalsize}}
+\subtitle{}
+
+\author{
+戴宁
+}
+
+\newcommand{\fix}{\marginpar{FIX}}
+\newcommand{\new}{\marginpar{NEW}}
+
+\hypersetup{
+colorlinks=true,
+linkcolor=black
+}
+
+\nipsfinalcopy % Uncomment for camera-ready version
+
+\begin{document}
+\maketitle
+%\tableofcontents
+%\newpage
+
+\section{Introduction}
+\qquad 序列标注问题，即给定观测序列$x = (x_1, x_2, ..., x_n)$，需要预
+测相应的标注序列$y = (y_1, y_2, ..., y_n)$，其中$n$是序列长度。具体的，
+学习系统需要建模$p(y|x)$，在给定x的情况下，学习系统会将$y^* = argmax_y
+\; p(y|x)$作为对当前观测序列所对应标注序列的预测。 
+
+\subsection{LSTM-CRF}
+\qquad 条件随机场(CRF)用于建模条件概率$p(y|x)$，在序列标注问题中通常使
+用线性链条件随机场，其形式如下:$$p(y|x;w) = \frac{exp(w \cdot F(x,
+  y))}{\sum_{y^{'}} exp(w \cdot F(x,y^{'}))}$$
+
+\qquad 其中$w$为需要学习的参数向量，而$F(x,y) =
+\sum_{i=1}^{n}f(x, i, y_{i-1}, y_i)$是局部特征向量之和。
+
+\qquad 传统的机器学习就需要对特征函数$f(x, i, y_{i-}, y_i)$进行精心的
+设计从而达到较好的效果。
+
+\qquad 对于深度学习来说，由于其拥有较强的学习特征表示的能力，故常考虑
+用神经网络代替人工设计的特征。在使用神经网络时，考虑如下方式定义的CRF：
+$$p(y|x) = \frac{exp(\sum_{i=1}^{n}A_{y_{i-1}, y_i} + P_{i, y_i}(x))}
+{\sum_{y^{'}}exp(\sum_{i=1}^{n}A_{y^{'}_{i-1}, y^{'}_i} + P_{i,
+    y^{'}_i}(x))}$$
+
+\qquad 其中$A$为转移矩阵，$A_{y_{i-1}, y_i}$用于评价从标记$y_{i-1}$转移到标
+记$y_i$的优劣，而$P_{i, y_i}(x)$表示观测序列为$x$的前提下，在第$i$个位置
+使用标记$y_i$的优劣。其中$A$为通过学习得到的参数矩阵，$P(x)$为神经网络
+需要学习到的映射。
+
+\qquad 虽然$P(x)$可以为任意类型的神经网络，但考虑到$x$是序列型输入，故
+主要构架使用RNN(LSTM、GRU)进行建模。
+
+\section{Model}
+\qquad 模型参照[3]中提出的char-level-feature + LSTM-CRF模型，本文中
+char-level-feature的提取使用的是GRU网络，同时使用IOBES格式的标记。
+
+\subsection{embedding}
+\subsubsection{word level}
+\qquad 通过[2]中的对比，发现GloVe算法得到的单词的词嵌入更加适合命名实
+体识别任务，故使用与[2]中相同的由GloVe预训练得到100维词嵌入向量。同时
+通过[2]中的单词分布分析得到，在开发集和测试集中有大量训练集中未出现的
+单词，故使用所有400000个预训练过的单词作为词表，同时忽略大小写。
+
+\qquad 对于未出现在词表中的词，用标识符<UNK>代替。<UNK>的embedding由词
+表中所有词的embedding取平均得到。
+
+\qquad 以上embedding在训练过程中可以被梯度下降调整。
+
+\subsubsection{char level}
+\qquad 由于英语的语言特点，很多词型上的特征会对NER任务提供很多重要的信
+息，故考虑使用一个额外的GRU网络来提取每个单词词型的特征。
+
+\qquad 字符级的词表为训练集中所有出现过的字符，区分大小写。这样一来在
+单词级忽略掉的大小写信息可以由字符级的特征刻画。每个字符的词嵌入向量在
+$[-1.0, 1.0]$直接由均匀分布生成，并且设置为可调整，通过训练过程中进一
+步学习得到。
+
+\qquad 字符级词表不设<UNK>标识，未出现在词表中的字符直接忽略不计。
+
+\qquad 每个单词的字符通过一个隐状态数为25的双向GRU网络，其前向与后向最终状态一起作为当前
+单词embedding的一部分。
+
+\qquad 通过拼接word level和char level的特征，最终每个单词由150维特征表
+示。
+
+\subsection{LSTM-CRF}
+\qquad 每个句子由前面的步骤得到单词的向量表示，作为双向LSTM单元的输入。
+然后将前向与后向得到的输出拼接后通过一个全连接层，投影成标记对应词表的大小，作为对每
+个位置使用每个标记的打分。
+
+\qquad 之后通过CRF层与转移矩阵一起对当前的标记序列打分。
+
+
+\section{Training Detail}
+
+\subsection{hyperparameters}
+
+\qquad 字符词嵌入向量为30维，单词词嵌入向量为100维
+
+\qquad GRU的隐单元数为25，LSTM的隐单元数为256。
+
+\qquad mini batch的大小为128，使用Adam算法计算梯度，其中$\beta_1=0.9,
+\beta_2=0.999$。
+
+\qquad 最终选择在开发集上F1分数最高的参数作为模型最终参数。
+
+\subsection{dropout}
+\qquad 在字符特征输入到GRU之前、单词特征输入到LSTM之前、LSTM输出进入全
+连接层之前都进行了dropout操作，keep\_prob为0.4或0.5。
+
+\subsection{gradient clipping}
+\qquad 为了防止RNN在训练过程中出现梯度爆炸的问题，在训练过程中对模
+型进行了梯度截断，公式如下：
+$$dW_{cliped} = \frac{dW_{raw} * max\_norm}{max(||dW_{raw}||_2, \;max\_norm)}$$
+
+\qquad 其中$dW_{raw}$代表所有变量的原始梯度，$dW_{cliped}$代表所有变量的被截断
+后梯度，$||dW_{raw}||_2$代表$dW_{raw}$的L2范数，max\_norm为截断的阈值
+(设置为5)。
+
+\subsection{learning rate decay}
+\qquad 为了防止训练后期模型震荡，在模型训练整个过程的前$1/2$学习率为初始设定的学习率，而训练过程的后$1/2$，采用线性衰减的策略，从初始学习率0.002一直衰减到0为止。
+
+\section{Result}
+\qquad 本文分别实验了不加char-level-feature和附加char-level-feature的
+LSTM-CRF模型
+
+\subsection{without char-level-feature}
+\qquad 一开始没有注意到[2]中对单词分布的分析，直接将训练集出现过的单词
+作为词表，模型的泛化能力很差，在训练集上能够到达接近$100\%$的F1分数，
+但是在开发集上就只有$85\%$左右的F1，在测试集上更是$80\%$都不到。
+
+\qquad 将所有400000个单词作为词表之后，在测试集上的F1分数能够达到
+$85.54\%$（使用IOB1格式标记）。
+
+\qquad 将标记改成IOBES格式后，模型的F1分数能够达到$87.25\%$
+
+\subsection{with char-level-feature}
+\qquad 在前面的基础上，加上了char-level-feature，模型在测试集上的F1分数直接升到
+了$90.51\%$
+
+\qquad 尝试对LSTM部分进行叠加，在2层LSTM的情况下达到了$90.70\%$的
+F1分数。
+
+\qquad 最后考虑到，由于训练集单词数量较小，在训练过程中对GloVe向量的再调整
+可能造成模型的过拟合，故尝试将单词的词嵌入部分设置为不可被调整。
+
+\qquad 实验后发现对最终结果没有太大影响，在相同参数下F1分数反而稍微下
+降了些。
+
+
+\subsubsection*{References}
+\small{
+[1] Zhiheng Huang. ; Wei Xu. ; \& Kai Yu. (2015) {\it Bidirectional LSTM-CRF 
+Models for Sequence Tagging.} Retrieved from
+https://arxiv.org/abs/1508.01991
+
+[2] Xuezhe Ma. ; \& Eduard Hovy. (2016) {\it End-to-end Sequence Labeling 
+via Bi-directional LSTM-CNNs-CRF.} Retrieved from 
+https://arxiv.org/abs/1603.01354
+
+[3] Guillaume Lample. ; Miguel Ballesteros. ; Sandeep Subramanian. ;
+Kazuya Kawakami. ; \& Chris Dyer. (2016) {\it Neural Architectures for Named
+  Entity Recognition.} Retrieved from 
+https://arxiv.org/abs/1603.01360
+
+\end{document}

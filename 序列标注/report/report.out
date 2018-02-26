@@ -1,0 +1,15 @@
+\BOOKMARK [1][-]{section.1}{Introduction}{}% 1
+\BOOKMARK [2][-]{subsection.1.1}{LSTM-CRF}{section.1}% 2
+\BOOKMARK [1][-]{section.2}{Model}{}% 3
+\BOOKMARK [2][-]{subsection.2.1}{embedding}{section.2}% 4
+\BOOKMARK [3][-]{subsubsection.2.1.1}{word\040level}{subsection.2.1}% 5
+\BOOKMARK [3][-]{subsubsection.2.1.2}{char\040level}{subsection.2.1}% 6
+\BOOKMARK [2][-]{subsection.2.2}{LSTM-CRF}{section.2}% 7
+\BOOKMARK [1][-]{section.3}{Training\040Detail}{}% 8
+\BOOKMARK [2][-]{subsection.3.1}{hyperparameters}{section.3}% 9
+\BOOKMARK [2][-]{subsection.3.2}{dropout}{section.3}% 10
+\BOOKMARK [2][-]{subsection.3.3}{gradient\040clipping}{section.3}% 11
+\BOOKMARK [2][-]{subsection.3.4}{learning\040rate\040decay}{section.3}% 12
+\BOOKMARK [1][-]{section.4}{Result}{}% 13
+\BOOKMARK [2][-]{subsection.4.1}{without\040char-level-feature}{section.4}% 14
+\BOOKMARK [2][-]{subsection.4.2}{with\040char-level-feature}{section.4}% 15
